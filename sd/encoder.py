@@ -49,7 +49,7 @@ class VAE_Encoder(nn.Sequential):
             VAE_ResidualBlock(512, 512),
 
             # (Batch_Size, 512, Height / 8, Width / 8) -> (Batch_Size, 512, Height / 8, Width / 8)
-            VAE_AttentionBlock(512, 512),
+            VAE_AttentionBlock(512),
 
             # (Batch_Size, 512, Height / 8, Width / 8) -> (Batch_Size, 512, Height / 8, Width / 8)
             VAE_ResidualBlock(512, 512),
@@ -64,7 +64,7 @@ class VAE_Encoder(nn.Sequential):
             nn.Conv2d(512, 8, kernel_size=3, padding=1),
 
             # (Batch_Size, 8, Height / 8, Width / 8) -> (Batch_Size, 8, Height / 8, Width / 8)
-            nn.Conv3d(8, 8, kernel_size=1, padding=0)
+            nn.Conv2d(8, 8, kernel_size=1, padding=0)
         )
      
     def forward(self, x: torch.Tensor, noise: torch.Tensor) -> torch.Tensor:
