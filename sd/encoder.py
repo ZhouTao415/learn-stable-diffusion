@@ -5,10 +5,11 @@ from torch import nn
 from torch.nn import functional as F
 from decoder import VAE_AttentionBlock, VAE_ResidualBlock
 
-class VAE_Encoder(nn.Sequential):
+class VAE_Encoder(nn.Module):
 
     def __init__(self):
-        super().__init__(
+        super().__init__()
+        self.layers = nn.Sequential(
             # (Batch_Size, Channel, Height, Width) -> (Batch_Size, 128, Height, Width)
             nn.Conv2d(3, 128, kernel_size=3, padding=1),
 
@@ -71,11 +72,11 @@ class VAE_Encoder(nn.Sequential):
         # x: (Batch_Size, Chanel, Height, Width)
         # noise: (Batch_Size, Out_Channel, Height / 8, Width / 8)
 
-        for moudle in self:
-            if getattr(moudle, "stride", None) == (2, 2):
+        for module in self.layers:
+            if getattr(module, "stride", None) == (2, 2):
                 # (Padding_Left, Padding_Right, Padding_Top, Padding_Bottom)
                 x = F.pad(x, (0, 1, 0, 1))
-            x = moudle(x)
+            x = module(x)
         
         # (Batch_Size, 8, Height / 8, Width / 8) -> two Tensors of Shape (Batch_Size, 4, Height / 8, Width / 8)
         mean, log_variance = x.chunk(2, dim=1)
