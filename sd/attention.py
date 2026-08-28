@@ -53,3 +53,57 @@ class SelfAttention(nn.Module):
 
         # (Batch_Size, Seq_Len, Dim) -> (Batch_Size, Seq_Len, Dim)
         return output
+
+
+class CrossAttention(nn.Module):
+
+    def __init__(self, n_heads:int, d_embed:int, d_cross:int, in_proj_bias=True, out_proj_bias=True):
+        super().__init__()
+
+        self.q_proj = nn.Linear(d_embed, d_embed, bias=in_proj_bias)
+        self.k_proj = nn.Linear(d_cross, d_embed, bias=in_proj_bias)
+        self.v_proj = nn.Linear(d_cross, d_embed, bias=in_proj_bias)
+
+        self.out_proj = nn.Linear(d_embed, d_embed, bias=out_proj_bias)
+        
+        self.n_heads = n_heads
+        self.d_head = d_embed // n_heads
+
+    def forward(self, x: torch.Tensor, context: torch.Tensor) -> torch.Tensor:
+        # x: (latent): (Batch_Size, Seq_len_Q, d_embed)
+        # context: (Batch_Size, Seq_len_KV, d_cross)
+
+        input_shape = x.shape
+        batch_size, seq_len_q, d_embed = input_shape
+
+        interm_shape = (batch_size, -1, self.n_heads, self.d_head)
+
+        q = self.q_proj(x)
+        k = self.k_proj(context)
+        v = self.v_proj(context)
+
+        # (Batch_Size, Seq_len q, H, Dim / H) -> (Batch_Size, H, Seq_len_q, Dim / H)
+        q = q.view(interm_shape).transpose(1, 2)
+        k = k.view(interm_shape).transpose(1, 2)
+        v = v.view(interm_shape).transpose(1, 2)
+
+        # (Batch_Size, H, Seq_len_q, Dim / H) @ (Batch_Size, H, Dim / H, Seq_len_KV) -> (Batch_Size, H, Seq_len_q, Seq_len_KV)
+        weight = q @ k.transpose(-2, -1)
+
+        # (Batch_Size, H, Seq_len_q, Seq_len_KV) -> (Batch_Size, H, Seq_len_q, Seq_len_KV)
+        weight /= math.sqrt(self.d_head)
+
+        # (Batch_Size, H, Seq_len_q, Seq_len_KV) -> (Batch_Size, H, Seq_len_q, Seq_len_KV)
+        weight = F.softmax(weight, dim=-1)
+
+        # (Batch_Size, H, Seq_len_q, Seq_len_KV) @ (Batch_Size, H, Seq_len_KV, Dim / H) -> (Batch_Size, H, Seq_len_q, Dim / H)
+        output = weight @ v
+
+        # (Batch_Size, H, Seq_len_q, Dim / H) -> (Batch_Size, Seq_len_q, H, Dim / H)
+        output = output.transpose(1, 2).contiguous()
+
+        output = output.reshape(input_shape)
+
+        output = self.out_proj(output)
+
+        return output
